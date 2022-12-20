@@ -544,8 +544,8 @@ class OmicronProcessJob(pipeline.CondorDAGJob):
     """
     logtag = '$(cluster)-$(process)'
 
-    def __init__(self, universe, executable, tag=None, subdir=None,
-                 logdir=None, request_memory=4000, **cmds):
+    def __init__(self, universe, executable, tag=None, subdir=None, logdir=None,
+                 request_memory=4000, singularity_image=None, **cmds):
         pipeline.CondorDAGJob.__init__(self, universe, executable)
         if tag is None:
             tag = os.path.basename(os.path.splitext(executable)[0])
@@ -569,6 +569,8 @@ class OmicronProcessJob(pipeline.CondorDAGJob):
         # add sub-command option
         self._command = None
 
+        self.singularity_image = singularity_image
+
     def add_opt(self, opt, value=''):
         pipeline.CondorDAGJob.add_opt(self, opt, str(value))
     add_opt.__doc__ = pipeline.CondorDAGJob.add_opt.__doc__
@@ -581,10 +583,22 @@ class OmicronProcessJob(pipeline.CondorDAGJob):
 
     def write_sub_file(self):
         pipeline.CondorDAGJob.write_sub_file(self)
-        if self.get_command():
-            with open(self.get_sub_file(), 'r') as f:
+        if not self.get_command() and not self.singularity_image:
+            return
+
+        with open(self.get_sub_file(), 'r') as f:
                 sub = f.read()
+
+        if self.get_command():
             sub = sub.replace('arguments = "', 'arguments = " %s'
                               % self.get_command())
-            with open(self.get_sub_file(), 'w') as f:
-                f.write(sub)
+        if self.singularity_image:
+            header = (
+                "+SingularityImage = %s\nRequirements = HasSingularity\n"
+                % self.singularity_image
+            )
+            header += sub
+
+        with open(self.get_sub_file(), 'w') as f:
+            f.write(sub)
+
