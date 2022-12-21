@@ -593,7 +593,7 @@ class OmicronProcessJob(pipeline.CondorDAGJob):
         # otherwise open up the sub file
         # and make the necessary changes
         with open(self.get_sub_file(), 'r') as f:
-                sub = f.read()
+            sub = f.read()
 
         if self.get_command():
             sub = sub.replace('arguments = "', 'arguments = " %s'
@@ -614,7 +614,7 @@ class OmicronProcessJob(pipeline.CondorDAGJob):
                 # and sub in the new string to the existing file
                 requirements = requirements.group(0)
                 requirements += " && \\\n"
-                requirements += " " * len(prefix) 
+                requirements += " " * len(prefix)
                 requirements += "HasSingularity"
                 sub = pattern.sub(requirements, sub)
 
@@ -625,4 +625,3 @@ class OmicronProcessJob(pipeline.CondorDAGJob):
 
         with open(self.get_sub_file(), 'w') as f:
             f.write(sub)
-

@@ -123,7 +123,7 @@ def test_find_rescue_dag():
     assert 'No rescue DAG files found' in str(exc.value)
 
 
-sub_no_reqs = f"""
+sub_no_reqs = """
 universe = vanilla
 executable = /path/to/omicron
 arguments = "some command"
@@ -214,5 +214,4 @@ def test_write_sub_file(patch_io, mock_process_job):
             '               TARGET.FileSystemDomain == "cs.wisc.edu" && \\\n'
             '               HasSingularity\n'
         )
-        assert reqs in sub 
-
+        assert reqs in sub
