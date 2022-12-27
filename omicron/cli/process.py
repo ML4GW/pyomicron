@@ -1068,7 +1068,7 @@ def main(args=None):
         rmjob = condor.OmicronProcessJob(
             args.universe, str(condir / "post-process-rm.sh"),
             subdir=condir, logdir=logdir, tag='post-processing-rm',
-            singularity_image=args.singulatiy_image, **condorcmds)
+            singularity_image=args.singularity_image, **condorcmds)
         rm = find_executable('rm')
         rmjob.add_condor_cmd('+OmicronPostProcess', '"%s"' % group)
 
