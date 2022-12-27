@@ -583,22 +583,45 @@ class OmicronProcessJob(pipeline.CondorDAGJob):
 
     def write_sub_file(self):
         pipeline.CondorDAGJob.write_sub_file(self)
+
+        # check if we need to make any amendments
+        # to the subfile written by the parent class
         if not self.get_command() and not self.singularity_image:
+            # if not, short circuit here
             return
 
+        # otherwise open up the sub file
+        # and make the necessary changes
         with open(self.get_sub_file(), 'r') as f:
-                sub = f.read()
+            sub = f.read()
 
         if self.get_command():
             sub = sub.replace('arguments = "', 'arguments = " %s'
                               % self.get_command())
+
         if self.singularity_image:
-            header = (
-                "+SingularityImage = %s\nRequirements = HasSingularity\n"
-                % self.singularity_image
-            )
-            header += sub
+            # check if there are existing requirements
+            prefix = "Requirements = "
+            pattern = re.compile(rf"(?m)(?<=^{prefix}).+(\n +.+)*")
+            requirements = pattern.search(sub)
+            if requirements is None:
+                # if not, just add singularity as the sole
+                # requirement at the top of the sub file
+                sub = "Requirements = HasSingularity\n" + sub
+            else:
+                # otherwise, append singularity as required
+                # in addition to the existing requirements
+                # and sub in the new string to the existing file
+                requirements = requirements.group(0)
+                requirements += " && \\\n"
+                requirements += " " * len(prefix)
+                requirements += "HasSingularity"
+                sub = pattern.sub(requirements, sub)
+
+            # finally specify the image path at the
+            # top of the sub file
+            image = '+SingularityImage = "%s"' % self.singularity_image
+            sub = image + "\n" + sub
 
         with open(self.get_sub_file(), 'w') as f:
             f.write(sub)
-
