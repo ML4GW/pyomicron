@@ -256,6 +256,16 @@ https://pyomicron.readthedocs.io/en/latest/"""
         help='additional file tag to be appended to final '
         'file descriptions',
     )
+
+    outg.add_argument(
+        '-k',
+        '--keep-tempfiles',
+        action='store_true',
+        default=False,
+        help='Keep temporary files after processing.'
+             'Useful for debugging. (default: %(default)s)',
+    )
+
     outg.add_argument('-l', '--log-file', type=Path, help="save a copy of all logger messages to this file")
 
     # data processing/chunking options
@@ -1431,9 +1441,11 @@ def main(args=None):
             f.rename(archive)
         logger.debug("Archived path\n{} --> {}".format(f, archive))
 
-    # clean up temporary files
+
+    # if requested, clean up temporary files
     tempfiles.extend(trigdir.glob("ffconvert.*.ffl"))
-    clean_tempfiles(tempfiles)
+    if not args.keep_tempfiles:
+        clean_tempfiles(tempfiles)
 
     # and exit
     logger.info(f"--- Processing complete. Elapsed: {time.time()-prog_start} seconds ----------------")
