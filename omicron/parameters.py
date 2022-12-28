@@ -37,6 +37,7 @@ UNUSED_PARAMS = ['state-flag', 'frametype', 'state-channel', 'state-frametype']
 OMICRON_PARAM_MAP = {
     'sample-frequency': ('DATA', 'SAMPLEFREQUENCY'),
     'verbosity': ('OUTPUT', 'VERBOSITY'),
+    'format': ('OUTPUT', 'FORMAT')
 }
 
 
