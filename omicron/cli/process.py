@@ -378,6 +378,12 @@ https://pyomicron.readthedocs.io/en/latest/"""
              "\"-{opt} [{value}]\". "
              "Can be given multiple times (default: %(default)s)",
     )
+    condorg.add_argument(
+        '--singularity-image',
+        type=str,
+        default=os.getenv('SINGULARITY_CONTAINER'),
+        help='Singularity image to execute condor jobs inside'
+    )
 
     # input data options
     datag = parser.add_argument_group('Data options')
@@ -1010,6 +1016,7 @@ def main(args=None):
         args.executable,
         subdir=condir,
         logdir=logdir,
+        singularity_image=args.singularity_image,
         **condorcmds
     )
     # This allows us to start with a memory request that works maybe 80%, but bumps it if we go over
@@ -1024,7 +1031,9 @@ def main(args=None):
     # create post-processing jobs
     ppjob = condor.OmicronProcessJob(args.universe, find_executable('bash'),
                                      subdir=condir, logdir=logdir,
-                                     tag='post-processing', **condorcmds)
+                                     tag='post-processing',
+                                     singularity_image=args.singularity_image,
+                                     **condorcmds)
     ppjob.add_condor_cmd('+OmicronPostProcess', f'"{group}"')
     ppmem = 1024
     ppjob.add_condor_cmd('+InitialRequestMemory', f'{ppmem}')
@@ -1058,14 +1067,16 @@ def main(args=None):
     if not args.skip_rm:
         rmjob = condor.OmicronProcessJob(
             args.universe, str(condir / "post-process-rm.sh"),
-            subdir=condir, logdir=logdir, tag='post-processing-rm', **condorcmds)
+            subdir=condir, logdir=logdir, tag='post-processing-rm',
+            singularity_image=args.singularity_image, **condorcmds)
         rm = find_executable('rm')
         rmjob.add_condor_cmd('+OmicronPostProcess', '"%s"' % group)
 
     if args.archive:
         archivejob = condor.OmicronProcessJob(
             args.universe, str(condir / "archive.sh"),
-            subdir=condir, logdir=logdir, tag='archive', **condorcmds)
+            subdir=condir, logdir=logdir, tag='archive',
+            singularity_image=args.singularity_image, **condorcmds)
         archivejob.add_condor_cmd('+OmicronPostProcess', '"%s"' % group)
         archivefiles = {}
     else:

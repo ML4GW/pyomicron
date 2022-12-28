@@ -22,6 +22,7 @@
 import sys
 import os.path
 import tempfile
+from contextlib import contextmanager
 from unittest import mock
 
 import pytest
@@ -120,3 +121,96 @@ def test_find_rescue_dag():
     with pytest.raises(IndexError) as exc:
         assert condor.find_rescue_dag(dagf)
     assert 'No rescue DAG files found' in str(exc.value)
+
+
+sub_no_reqs = """
+universe = vanilla
+executable = /path/to/omicron
+arguments = "some command"
+"""
+
+sub_one_req = sub_no_reqs + """
+Requirements = TARGET.UidDomain == "cs.wisc.edu"
+"""
+
+sub_multi_reqs = sub_one_req[:-1] + """ && \\
+               TARGET.FileSystemDomain == "cs.wisc.edu"
+"""
+
+
+@pytest.fixture
+def subfile(tmp_path):
+    tmp_path.mkdir(exist_ok=True)
+    return str(tmp_path / "test.sub")
+
+
+@pytest.fixture
+def mock_process_job(subfile):
+    obj = mock.Mock()
+    obj.get_command = mock.Mock(return_value=None)
+    obj.singularity_image = None
+    obj.get_sub_file = mock.Mock(return_value=subfile)
+    return obj
+
+
+@pytest.fixture
+def patch_io(subfile, mock_process_job):
+    def write_sub(sub):
+        with open(subfile, "w") as f:
+            f.write(sub)
+
+    @contextmanager
+    def f(sub):
+        with mock.patch(
+            "glue.pipeline.CondorDAGJob.write_sub_file",
+            new=lambda _: write_sub(sub)
+        ):
+            condor.OmicronProcessJob.write_sub_file(mock_process_job)
+            with open(subfile, "r") as f:
+                yield f.read()
+    return f
+
+
+def test_write_sub_file(patch_io, mock_process_job):
+    # check that if we don't have a command or
+    # a singularity image, nothing changes
+    with patch_io(sub_no_reqs) as sub:
+        assert sub == sub_no_reqs
+
+    # now verify that a command changes the 'arguments' line
+    mock_process_job.get_command = mock.Mock(return_value="new arguments")
+    with patch_io(sub_no_reqs) as sub:
+        # TODO: this is the expected behavior given the existing
+        # code, but given the weird space placement is this
+        # meant to be reversed?
+        assert sub.endswith('\narguments = " new argumentssome command"\n')
+
+    # now verify that specifying a singularity
+    # image adds the appropriate lines to a file
+    # that didn't specify any requirements
+    mock_process_job.singularity_image = "image.sif"
+    start = '+SingularityImage = "image.sif"\ntransfer_executable = False\n'
+    with patch_io(sub_no_reqs) as sub:
+        assert sub.startswith(start + 'Requirements = HasSingularity')
+
+    # do the same, but verify that the singularity
+    # requirement gets added on top of a single
+    # existing requirement
+    with patch_io(sub_one_req) as sub:
+        assert sub.startswith(start)
+        reqs = (
+            'Requirements = TARGET.UidDomain == "cs.wisc.edu" && \\\n'
+            '               HasSingularity\n'
+        )
+        assert reqs in sub
+
+    # the same again, but verify that this works for
+    # sub files with multiline existing requirements
+    with patch_io(sub_multi_reqs) as sub:
+        assert sub.startswith(start)
+        reqs = (
+            'Requirements = TARGET.UidDomain == "cs.wisc.edu" && \\\n'
+            '               TARGET.FileSystemDomain == "cs.wisc.edu" && \\\n'
+            '               HasSingularity\n'
+        )
+        assert reqs in sub

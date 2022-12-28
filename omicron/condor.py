@@ -544,8 +544,8 @@ class OmicronProcessJob(pipeline.CondorDAGJob):
     """
     logtag = '$(cluster)-$(process)'
 
-    def __init__(self, universe, executable, tag=None, subdir=None,
-                 logdir=None, request_memory=4000, **cmds):
+    def __init__(self, universe, executable, tag=None, subdir=None, logdir=None,
+                 request_memory=4000, singularity_image=None, **cmds):
         pipeline.CondorDAGJob.__init__(self, universe, executable)
         if tag is None:
             tag = os.path.basename(os.path.splitext(executable)[0])
@@ -569,6 +569,8 @@ class OmicronProcessJob(pipeline.CondorDAGJob):
         # add sub-command option
         self._command = None
 
+        self.singularity_image = singularity_image
+
     def add_opt(self, opt, value=''):
         pipeline.CondorDAGJob.add_opt(self, opt, str(value))
     add_opt.__doc__ = pipeline.CondorDAGJob.add_opt.__doc__
@@ -581,10 +583,45 @@ class OmicronProcessJob(pipeline.CondorDAGJob):
 
     def write_sub_file(self):
         pipeline.CondorDAGJob.write_sub_file(self)
+
+        # check if we need to make any amendments
+        # to the subfile written by the parent class
+        if not self.get_command() and not self.singularity_image:
+            # if not, short circuit here
+            return
+
+        # otherwise open up the sub file
+        # and make the necessary changes
+        with open(self.get_sub_file(), 'r') as f:
+            sub = f.read()
+
         if self.get_command():
-            with open(self.get_sub_file(), 'r') as f:
-                sub = f.read()
             sub = sub.replace('arguments = "', 'arguments = " %s'
                               % self.get_command())
-            with open(self.get_sub_file(), 'w') as f:
-                f.write(sub)
+
+        if self.singularity_image:
+            # check if there are existing requirements
+            prefix = "Requirements = "
+            pattern = re.compile(rf"(?m)(?<=^{prefix}).+(\n +.+)*")
+            requirements = pattern.search(sub)
+            if requirements is None:
+                # if not, just add singularity as the sole
+                # requirement at the top of the sub file
+                sub = "Requirements = HasSingularity\n" + sub
+            else:
+                # otherwise, append singularity as required
+                # in addition to the existing requirements
+                # and sub in the new string to the existing file
+                requirements = requirements.group(0)
+                requirements += " && \\\n"
+                requirements += " " * len(prefix)
+                requirements += "HasSingularity"
+                sub = pattern.sub(requirements, sub)
+
+            # finally specify the image path at the
+            # top of the sub file
+            image = '+SingularityImage = "%s"' % self.singularity_image
+            sub = '%s\ntransfer_executable = False\n%s' % (image, sub)
+
+        with open(self.get_sub_file(), 'w') as f:
+            f.write(sub)
