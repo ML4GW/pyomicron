@@ -621,7 +621,7 @@ class OmicronProcessJob(pipeline.CondorDAGJob):
             # finally specify the image path at the
             # top of the sub file
             image = '+SingularityImage = "%s"' % self.singularity_image
-            sub = image + "\n" + sub
+            sub = '%s\ntransfer_executable = False\n%s' % (image, sub)
 
         with open(self.get_sub_file(), 'w') as f:
             f.write(sub)

@@ -189,16 +189,15 @@ def test_write_sub_file(patch_io, mock_process_job):
     # image adds the appropriate lines to a file
     # that didn't specify any requirements
     mock_process_job.singularity_image = "image.sif"
+    start = '+SingularityImage = "image.sif"\ntransfer_executable = False\n'
     with patch_io(sub_no_reqs) as sub:
-        assert sub.startswith(
-            '+SingularityImage = "image.sif"\nRequirements = HasSingularity'
-        )
+        assert sub.startswith(start + 'Requirements = HasSingularity')
 
     # do the same, but verify that the singularity
     # requirement gets added on top of a single
     # existing requirement
     with patch_io(sub_one_req) as sub:
-        assert sub.startswith('+SingularityImage = "image.sif"\n')
+        assert sub.startswith(start)
         reqs = (
             'Requirements = TARGET.UidDomain == "cs.wisc.edu" && \\\n'
             '               HasSingularity\n'
@@ -208,7 +207,7 @@ def test_write_sub_file(patch_io, mock_process_job):
     # the same again, but verify that this works for
     # sub files with multiline existing requirements
     with patch_io(sub_multi_reqs) as sub:
-        assert sub.startswith('+SingularityImage = "image.sif"\n')
+        assert sub.startswith(start)
         reqs = (
             'Requirements = TARGET.UidDomain == "cs.wisc.edu" && \\\n'
             '               TARGET.FileSystemDomain == "cs.wisc.edu" && \\\n'
