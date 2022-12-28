@@ -35,7 +35,8 @@ from .segments import integer_segments
 CHANNEL_DELIM_REGEX = re.compile(r'[:_-]')
 UNUSED_PARAMS = ['state-flag', 'frametype', 'state-channel', 'state-frametype']
 OMICRON_PARAM_MAP = {
-    'sample-frequency': ('DATA', 'SAMPLEFREQUENCY')
+    'sample-frequency': ('DATA', 'SAMPLEFREQUENCY'),
+    'verbosity': ('OUTPUT', 'VERBOSITY'),
 }
 
 
